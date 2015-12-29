@@ -35,10 +35,10 @@ void loop(void){
   if(ble.isConnected()){ //if connected,
     ble.println(F("AT+BLEUARTRX")); //ask to recieve information
     ble.readline(); //read newest information
-    if(!strncmp(ble.buffer, "!B", 2) && //check to see if new information is a button press
-    checkCRC(255-'!'-'B', 4) && //checkCRC to confirm
+    if(!strncmp(ble.buffer, "!B", 2) && //check to see if new information is from coontroller app
+    checkCRC(255-'!'-'B', 4) && //checkCRC to confirm, if boolean returns true, continue
     (ble.buffer[3] == '1')){ //1 is a button press, 0 is a button release
-      switch(ble.buffer[2]){ //the string will have a number corresponding to each button, if true, continue
+      switch(ble.buffer[2]){ //the string will have a number corresponding to each button
         case '1': //no movement
         servoright.write(pause);
         servoleft.write(pause);
@@ -50,7 +50,7 @@ void loop(void){
         case '4':
         break;
         //*these servo.writes will vary depending on how your servos are calibrated
-        the vehicle should not turn right or left when up is pressed, if it is the .write values can be adjusted
+        the vehicle should not turn right or left when up is pressed, if it is then the .write values can be adjusted
         *//
         case '5': //up, my servos rotated in opposite directions
         servoright.write(pause - 10);
