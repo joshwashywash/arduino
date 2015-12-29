@@ -1,0 +1,82 @@
+//* All hardware can be purchased from www.adafruit.com. 
+Libraries can also be downloaded there or from the arduino library manager.
+Adafruit also has many great tutorials on their webiste about how to use their products.
+Please refer to these tutorials for further explanation.
+You must also use the Bluefruit LE app to send commands to the bluefruit module.
+This code only addresses the controller app commands.
+*//
+
+//include necessary libraries
+#include <Adafruit_BLE.h>
+#include <Adafruit_BluefruitLE_SPI.h>
+#include <Adafruit_BluefruitLE_UART.h>
+#include <SPI.h>
+#include <SoftwareSerial.h>
+#include <Servo.h>
+//define pins
+#define LEDpin 13 //for bluefruit initialization error
+#define CS 8
+#define IRQ 7
+#define RST 4
+//create servo objects
+Servo servoright;
+Servo servoleft;
+int pause = 90; //continuous servos are not moving at 90
+Adafruit_BluefruitLE_SPI ble(CS, IRQ, RST); //create bluefruit object
+void setup(void){;
+  if(!ble.begin(false)){ //if initialization fails,
+    digitalWrite(LEDpin, HIGH); //LED on forever
+  }
+  ble.echo(false); //do not echo commands
+  servoright.attach(10);
+  servoleft.attach(9);
+}
+void loop(void){
+  if(ble.isConnected()){ //if connected,
+    ble.println(F("AT+BLEUARTRX")); //ask to recieve information
+    ble.readline(); //read newest information
+    if(!strncmp(ble.buffer, "!B", 2) && //check to see if new information is a button press
+    checkCRC(255-'!'-'B', 4) && //checkCRC to confirm
+    (ble.buffer[3] == '1')){ //1 is a button press, 0 is a button release
+      switch(ble.buffer[2]){ //the string will have a number corresponding to each button, if true, continue
+        case '1': //no movement
+        servoright.write(pause);
+        servoleft.write(pause);
+        break;
+        case '2':
+        Serial.println("2");
+        break;
+        case '3':
+        Serial.println("3");
+        break;
+        case '4':
+        Serial.println("4");
+        break;
+        //*these servo.writes will vary depending on how your servos are calibrated
+        the vehicle should not turn right or left when up is pressed, if it is the .write values can be adjusted
+        *//
+        case '5': //up, my servos rotated in opposite directions
+        servoright.write(pause - 10);
+        servoleft.write(pause + 10);
+        break;
+        case '6': //down
+        servoright.write(pause + 10);
+        servoleft.write(pause - 10);
+        break;
+        case '7': //left
+        servoright.write(pause - 10);
+        servoleft.write(pause - 10);
+        break;
+        case '8': //right
+        servoright.write(pause + 10);
+        servoleft.write(pause + 10);
+        break;
+      }
+    }
+  }
+}
+//I copied this part of the code from https://learn.adafruit.com/bluetooth-motorized-camera-slider/software
+boolean checkCRC(uint8_t sum, uint8_t CRCindex) {
+  for(uint8_t i=2; i<CRCindex; i++) sum -= (uint8_t)ble.buffer[i];
+  return ((uint8_t)ble.buffer[CRCindex] == sum);
+}
