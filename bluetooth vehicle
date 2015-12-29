@@ -44,13 +44,10 @@ void loop(void){
         servoleft.write(pause);
         break;
         case '2':
-        Serial.println("2");
         break;
         case '3':
-        Serial.println("3");
         break;
         case '4':
-        Serial.println("4");
         break;
         //*these servo.writes will vary depending on how your servos are calibrated
         the vehicle should not turn right or left when up is pressed, if it is the .write values can be adjusted
