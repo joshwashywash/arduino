@@ -1,0 +1,120 @@
+/*
+Utilizes a PIR (Passive InfraRed) sensor which detects infrared light given off by warm bodies and the Adafruit Datalogger for logging sensor data to an SD card. 
+The sensor and logger can be bought from adafruit.com where they also have provided tutorials for each.
+The RTC library can be downloaded from the library manager and is necessary for logging time.
+You will need to set your RTC which can be done over serial. A tutorial of how to do this can be found on Adafruit's datalogger tutorial page.
+*/
+
+//necessary libraries
+#include <SD.h>
+#include <Wire.h>
+#include <RTClib.h>
+#include <SPI.h>
+
+#define pirPin 2 //sensor
+#define ledPin 13 //the shield has 2 led pins that can be used for debugging. see the adafruit tutorial for further explanation
+#define CS 10 //chip select pin for SD
+
+uint32_t syncTime = 0; //time to sync data to card
+int val = 0; //variable for sensor value
+int pirState = LOW; //assumed to initially be low
+RTC_DS1307 RTC; //creating the RTC object
+File logfile; //file to log data to on SD card
+
+void error(char *str) { //used for initialization errors
+  Serial.print("error: ");
+  Serial.println(str); //prints error to serial monitor
+  digitalWrite(ledPin, HIGH); //turo LED high
+  while (1); //sits in a while loop forever so it does not proceed
+}
+
+void setup(void) {
+  Serial.begin(9600);
+  Serial.println("Initializing SD card...");
+  pinMode(CS, OUTPUT); //necessary
+  if (!SD.begin(CS)) { //if the SD is not recognized
+    Serial.println("Card failed, or not present.");
+    return;
+  }
+  Serial.println("Card initialized.");
+  
+  char filename[] = "LOGGER00.CSV"; //this creates the .csv file for logging the data to which can easily be parsed by programs like excel or matlab
+  for (uint8_t i = 0; i < 100; i++) {
+    filename[6] = i / 10 + '0';
+    filename[7] = i % 10 + '0';
+    if (!SD.exists(filename)) { //if the file exists then we will write data to it.
+      logfile = SD.open(filename, FILE_WRITE); //name the logging file.
+      break;
+    }
+  }
+  if (! logfile) { //if the file can not be created
+    error("couldn't create file");
+  }
+  Serial.print("Logging to: "); //if the file is created this tells us what file we are logging to.
+  Serial.println(filename);
+  
+  Wire.begin(); //I2C communication
+  if (!RTC.begin()) { //if RTC fails, it prints to the logfile
+    logfile.println("RTC failed");
+  }
+  logfile.println("millis, time, motion"); //data types to log
+  pinMode(pirPin, INPUT); //will be looking for a HIGH or LOW input
+  pinMode(ledPin, OUTPUT); //used for debugging
+}
+
+void loop(void) {
+  DateTime now; //time creation
+  uint32_t m = millis(); //time since arduino has been on
+  now = RTC.now(); //uses the RTC as the clock
+  val = digitalRead(pirPin); //read value at pin 2
+  
+  if (val == HIGH) { //if the value is high and the pir state was low that means movement has been detected
+    if (pirState == LOW) {
+      Serial.println("Motion detected.");
+      logfile.print(m); //time since arduino has been on
+      logfile.print(", "); //separates data by a comma
+      logfile.print('"'); //prints to the logfile when the movement was detected.
+      logfile.print(now.year(), DEC);
+      logfile.print("/");
+      logfile.print(now.month(), DEC);
+      logfile.print("/");
+      logfile.print(now.day(), DEC);
+      logfile.print(" ");
+      logfile.print(now.hour(), DEC);
+      logfile.print(":");
+      logfile.print(now.minute(), DEC);
+      logfile.print(":");
+      logfile.print(now.second(), DEC);
+      logfile.print('"');
+      logfile.print(", ");
+      logfile.println("detected"); //movement detected.
+      pirState = HIGH; //sets the pir state to high so we can tell when the movement ends
+    }
+  } else { //if the pirPin is read as LOW and its state was HIGH, that means motion has ended
+    if (pirState == HIGH) {
+      Serial.println("Motion ended.");
+      logfile.print(m);
+      logfile.print(", ");
+      logfile.print('"');
+      logfile.print(now.year(), DEC);
+      logfile.print("/");
+      logfile.print(now.month(), DEC);
+      logfile.print("/");
+      logfile.print(now.day(), DEC);
+      logfile.print(" ");
+      logfile.print(now.hour(), DEC);
+      logfile.print(":");
+      logfile.print(now.minute(), DEC);
+      logfile.print(":");
+      logfile.print(now.second(), DEC);
+      logfile.print('"');
+      logfile.print(", ");
+      logfile.println("ended"); //warm body has moved out of the range of the sensor
+      pirState = LOW; //set state to LOW so that next time it is read new movement
+    }
+  }
+  
+  if ((millis() - syncTime) < 1000) return; //if the arduino has data to log in the past second, then it will record it
+  syncTime = millis();
+  logfile.flush();
+}
