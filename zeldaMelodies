@@ -1,5 +1,5 @@
 #include "pitches.h"
-//https://www.arduino.cc/en/Tutorial/toneKeyboard followfor pitches
+//https://www.arduino.cc/en/Tutorial/toneKeyboard follow for pitches
 //pitches.h gives each note a frequency
 int sariaPin = 0;
 int eponaPin = 1;
